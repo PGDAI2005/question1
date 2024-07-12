@@ -2,10 +2,10 @@ pipeline {
     agent any
     
     environment {
-        // Define environment variables for Git and DockerHub credentials
         GIT_REPOSITORY_URL = 'https://github.com/PGDAI2005/question1.git'
         DOCKER_IMAGE_NAME = 'pgdai2005_question1'
         IMAGE_TAG = '1.0' // Make sure to use string for tag
+        DOCKERHUB_CREDENTIALS = 'my-docker-hub-credentials-id' // Update with your credentials ID
     }
     
     stages {
@@ -28,7 +28,8 @@ pipeline {
                 // Build Docker image using Dockerfile in repository
                 script {
                     try {
-                        docker.build(DOCKER_IMAGE_NAME)
+                        def dockerfile = 'Dockerfile' // Adjust if your Dockerfile has a different name
+                        docker.build("${DOCKER_IMAGE_NAME}:${IMAGE_TAG}", "-f ${dockerfile} .")
                     } catch (Exception e) {
                         echo "Failed to build Docker image: ${e.message}"
                         error "Failed to build Docker image"
@@ -42,10 +43,13 @@ pipeline {
                 // Log in to DockerHub and push Docker image
                 script {
                     try {
-                        withCredentials([usernamePassword(credentialsId: 'my-docker-hub-credentials-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                            docker.withRegistry('https://index.docker.io/v1/') {
-                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin docker.io"
-                                docker.image(DOCKER_IMAGE_NAME).push(IMAGE_TAG)
+                        withCredentials([usernamePassword(credentialsId: DOCKERHUB_CREDENTIALS, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {
+                                // Docker login
+                                sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+                                
+                                // Docker push
+                                docker.image("${DOCKER_IMAGE_NAME}:${IMAGE_TAG}").push()
                             }
                         }
                     } catch (Exception e) {
